@@ -85,31 +85,41 @@ function mostrarEnfrentamientos() {
             </div>
         `;
     });
-    container.innerHTML += `<button class='btn btn-secondary mt-3' onclick='pasarSiguienteRonda()'>Siguiente Ronda</button></div>`;
-    container.innerHTML += `<button class='btn btn-danger mt-3' onclick='finalizarTorneo()'>Finalizar Torneo</button></div>`;
+    container.innerHTML += `<button class='btn btn-secondary mt-3' onclick='pasarSiguienteRonda()'>Siguiente Ronda</button>`;
+    container.innerHTML += `<button class='btn btn-danger mt-3' onclick='finalizarTorneo()'>Finalizar Torneo</button>`;
 }
 
 function registrarResultado(index, resultado) {
     if (rondaFinalizada) return;
     
-    enfrentamientos[index][2] = resultado;
+    let enfrentamiento = enfrentamientos[index];
+    let anterior = enfrentamiento[2];
     
-    document.getElementById(`btn-${index}-0`).classList.remove("active");
-    document.getElementById(`btn-${index}-1`).classList.remove("active");
-    document.getElementById(`btn-${index}-empate`).classList.remove("active");
+    if (anterior !== null) {
+        if (anterior === "empate") {
+            enfrentamiento[0].empatadas--;
+            enfrentamiento[1].empatadas--;
+            document.getElementById(`btn-${index}-empate`).classList.remove("active");
+        } else {
+            enfrentamiento[anterior].ganadas--;
+            enfrentamiento[1 - anterior].perdidas--;
+            document.getElementById(`btn-${index}-${resultado}`).classList.remove("active");
+        }
+    }
     
-    if (resultado === "empate") {
-        enfrentamientos[index][0].empatadas++;
-        enfrentamientos[index][1].empatadas++;
-        document.getElementById(`btn-${index}-empate`).classList.add("active");
+    if (anterior === resultado) {
+        enfrentamiento[2] = null;
     } else {
-        const ganador = enfrentamientos[index][resultado];
-        const perdedor = enfrentamientos[index][1 - resultado];
-        ganador.ganadas++;
-        perdedor.perdidas++;
-        ganador.oponentes.push(perdedor);
-        perdedor.oponentes.push(ganador);
-        document.getElementById(`btn-${index}-${resultado}`).classList.add("active");
+        enfrentamiento[2] = resultado;
+        if (resultado === "empate") {
+            enfrentamiento[0].empatadas++;
+            enfrentamiento[1].empatadas++;
+            document.getElementById(`btn-${index}-empate`).classList.add("active");
+        } else {
+            enfrentamiento[resultado].ganadas++;
+            enfrentamiento[1 - resultado].perdidas++;
+            document.getElementById(`btn-${index}-${resultado}`).classList.add("active");
+        }
     }
     actualizarTabla();
 }
