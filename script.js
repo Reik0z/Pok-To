@@ -7,7 +7,7 @@ function agregarJugador() {
     const input = document.getElementById("nombreJugador");
     const nombre = input.value.trim();
     if (nombre) {
-        jugadores.push({ nombre, ganadas: 0, perdidas: 0, empatadas: 0, oponentes: [] });
+        jugadores.push({ nombre, puntos: 0, ganadas: 0, perdidas: 0, empatadas: 0, oponentes: [] });
         input.value = "";
         actualizarTabla();
     }
@@ -29,6 +29,7 @@ function actualizarTabla() {
     jugadores.forEach(jugador => {
         const row = `<tr>
                         <td>${jugador.nombre}</td>
+                        <td>${jugador.puntos}</td>
                         <td>${jugador.ganadas}</td>
                         <td>${jugador.perdidas}</td>
                         <td>${jugador.empatadas}</td>
@@ -50,24 +51,25 @@ function iniciarRonda() {
 
 function generarEnfrentamientos() {
     enfrentamientos = [];
-    let grupos = {};
+    let jugadoresOrdenados = [...jugadores].sort((a, b) => b.puntos - a.puntos);
+    let emparejados = new Set();
     
-    jugadores.forEach(j => {
-        let clave = `${j.ganadas}-${j.perdidas}-${j.empatadas}`;
-        if (!grupos[clave]) grupos[clave] = [];
-        grupos[clave].push(j);
-    });
-    
-    let pendientes = [];
-    Object.values(grupos).forEach(lista => {
-        while (lista.length >= 2) {
-            enfrentamientos.push([lista.pop(), lista.pop(), null]);
+    for (let i = 0; i < jugadoresOrdenados.length; i++) {
+        if (emparejados.has(jugadoresOrdenados[i].nombre)) continue;
+        
+        let rivalIndex = jugadoresOrdenados.findIndex(j => 
+            !emparejados.has(j.nombre) && 
+            j.nombre !== jugadoresOrdenados[i].nombre && 
+            !jugadoresOrdenados[i].oponentes.includes(j.nombre)
+        );
+        
+        if (rivalIndex !== -1) {
+            enfrentamientos.push([jugadoresOrdenados[i], jugadoresOrdenados[rivalIndex], null]);
+            emparejados.add(jugadoresOrdenados[i].nombre);
+            emparejados.add(jugadoresOrdenados[rivalIndex].nombre);
+            jugadoresOrdenados[i].oponentes.push(jugadoresOrdenados[rivalIndex].nombre);
+            jugadoresOrdenados[rivalIndex].oponentes.push(jugadoresOrdenados[i].nombre);
         }
-        if (lista.length === 1) pendientes.push(lista.pop());
-    });
-    
-    while (pendientes.length >= 2) {
-        enfrentamientos.push([pendientes.pop(), pendientes.pop(), null]);
     }
 }
 
@@ -78,32 +80,47 @@ function mostrarEnfrentamientos() {
         container.innerHTML += `
             <div class='card p-3 my-2'>
                 <h5>Partido ${index + 1}</h5>
-                <button class='btn btn-outline-primary' id='btn-${index}-0' onclick='registrarResultado(${index}, 0)'>${pair[0].nombre}</button>
+                <button class='btn btn-outline-primary resultado-btn' data-index='${index}' data-result='0'>${pair[0].nombre}</button>
                 vs
-                <button class='btn btn-outline-primary' id='btn-${index}-1' onclick='registrarResultado(${index}, 1)'>${pair[1].nombre}</button>
-                <button class='btn btn-outline-warning' id='btn-${index}-empate' onclick='registrarResultado(${index}, "empate")'>Empate</button>
+                <button class='btn btn-outline-primary resultado-btn' data-index='${index}' data-result='1'>${pair[1].nombre}</button>
+                <button class='btn btn-outline-warning resultado-btn' data-index='${index}' data-result='empate'>Empate</button>
             </div>
         `;
     });
     container.innerHTML += `<button class='btn btn-secondary mt-3' onclick='pasarSiguienteRonda()'>Siguiente Ronda</button>`;
     container.innerHTML += `<button class='btn btn-danger mt-3' onclick='finalizarTorneo()'>Finalizar Torneo</button>`;
+    
+    setTimeout(agregarEventosBotones, 100);
+}
+
+function agregarEventosBotones() {
+    document.querySelectorAll(".resultado-btn").forEach(button => {
+        button.replaceWith(button.cloneNode(true)); // Elimina eventos anteriores
+    });
+    document.querySelectorAll(".resultado-btn").forEach(button => {
+        button.addEventListener("click", function() {
+            registrarResultado(this.dataset.index, this.dataset.result);
+            actualizarEstadoBotones();
+        });
+    });
 }
 
 function registrarResultado(index, resultado) {
     if (rondaFinalizada) return;
-    
+    index = parseInt(index);
     let enfrentamiento = enfrentamientos[index];
     let anterior = enfrentamiento[2];
     
     if (anterior !== null) {
         if (anterior === "empate") {
+            enfrentamiento[0].puntos -= 1;
+            enfrentamiento[1].puntos -= 1;
             enfrentamiento[0].empatadas--;
             enfrentamiento[1].empatadas--;
-            document.getElementById(`btn-${index}-empate`).classList.remove("active");
         } else {
+            enfrentamiento[anterior].puntos -= 3;
             enfrentamiento[anterior].ganadas--;
             enfrentamiento[1 - anterior].perdidas--;
-            document.getElementById(`btn-${index}-${resultado}`).classList.remove("active");
         }
     }
     
@@ -112,16 +129,28 @@ function registrarResultado(index, resultado) {
     } else {
         enfrentamiento[2] = resultado;
         if (resultado === "empate") {
+            enfrentamiento[0].puntos += 1;
+            enfrentamiento[1].puntos += 1;
             enfrentamiento[0].empatadas++;
             enfrentamiento[1].empatadas++;
-            document.getElementById(`btn-${index}-empate`).classList.add("active");
         } else {
+            enfrentamiento[resultado].puntos += 3;
             enfrentamiento[resultado].ganadas++;
             enfrentamiento[1 - resultado].perdidas++;
-            document.getElementById(`btn-${index}-${resultado}`).classList.add("active");
         }
     }
     actualizarTabla();
+}
+
+function actualizarEstadoBotones() {
+    document.querySelectorAll(".resultado-btn").forEach(button => {
+        button.classList.remove("active");
+    });
+    enfrentamientos.forEach((enfrentamiento, index) => {
+        if (enfrentamiento[2] !== null) {
+            document.querySelector(`[data-index='${index}'][data-result='${enfrentamiento[2]}']`).classList.add("active");
+        }
+    });
 }
 
 function pasarSiguienteRonda() {
@@ -129,7 +158,7 @@ function pasarSiguienteRonda() {
         alert("Debe registrar todos los resultados antes de pasar a la siguiente ronda.");
         return;
     }
-    rondaFinalizada = true;
+    rondaFinalizada = false;
     ronda++;
     generarEnfrentamientos();
     mostrarEnfrentamientos();
@@ -150,6 +179,7 @@ function finalizarTorneo() {
                             <thead>
                                 <tr>
                                     <th>Nombre</th>
+                                    <th>Puntos</th>
                                     <th>Ganadas</th>
                                     <th>Perdidas</th>
                                     <th>Empatadas</th>
@@ -161,6 +191,7 @@ function finalizarTorneo() {
     jugadores.forEach(j => {
         resultadoFinal += `<tr>
                             <td>${j.nombre}</td>
+                            <td>${j.puntos}</td>
                             <td>${j.ganadas}</td>
                             <td>${j.perdidas}</td>
                             <td>${j.empatadas}</td>
