@@ -29,13 +29,23 @@ function actualizarTabla() {
     jugadores.forEach(jugador => {
         const row = `<tr>
                         <td>${jugador.nombre}</td>
-                        <td>${jugador.puntos}</td>
                         <td>${jugador.ganadas}</td>
                         <td>${jugador.perdidas}</td>
                         <td>${jugador.empatadas}</td>
+                        <td>${jugador.puntos}</td>
+                        <td>${calcularWinrate(jugador).toFixed(2)}</td>
                      </tr>`;
         tbody.innerHTML += row;
     });
+}
+
+function calcularWinrate(jugador) {
+    if (jugador.oponentes.length === 0) return 0;
+    let totalPuntosOponentes = jugador.oponentes.reduce((acc, oponenteNombre) => {
+        let oponente = jugadores.find(j => j.nombre === oponenteNombre);
+        return acc + (oponente ? oponente.puntos : 0);
+    }, 0);
+    return totalPuntosOponentes / jugador.oponentes.length;
 }
 
 function iniciarRonda() {
@@ -51,24 +61,32 @@ function iniciarRonda() {
 
 function generarEnfrentamientos() {
     enfrentamientos = [];
-    let jugadoresOrdenados = [...jugadores].sort((a, b) => b.puntos - a.puntos);
+    let jugadoresOrdenados = [...jugadores].sort((a, b) => b.puntos - a.puntos || calcularWinrate(b) - calcularWinrate(a));
     let emparejados = new Set();
     
     for (let i = 0; i < jugadoresOrdenados.length; i++) {
         if (emparejados.has(jugadoresOrdenados[i].nombre)) continue;
         
-        let rivalIndex = jugadoresOrdenados.findIndex(j => 
+        let rival = jugadoresOrdenados.find(j => 
             !emparejados.has(j.nombre) && 
             j.nombre !== jugadoresOrdenados[i].nombre && 
             !jugadoresOrdenados[i].oponentes.includes(j.nombre)
         );
         
-        if (rivalIndex !== -1) {
-            enfrentamientos.push([jugadoresOrdenados[i], jugadoresOrdenados[rivalIndex], null]);
+        if (rival) {
+            enfrentamientos.push([jugadoresOrdenados[i], rival, null]);
             emparejados.add(jugadoresOrdenados[i].nombre);
-            emparejados.add(jugadoresOrdenados[rivalIndex].nombre);
-            jugadoresOrdenados[i].oponentes.push(jugadoresOrdenados[rivalIndex].nombre);
-            jugadoresOrdenados[rivalIndex].oponentes.push(jugadoresOrdenados[i].nombre);
+            emparejados.add(rival.nombre);
+            jugadoresOrdenados[i].oponentes.push(rival.nombre);
+            rival.oponentes.push(jugadoresOrdenados[i].nombre);
+        }
+    }
+    
+    if (jugadoresOrdenados.length % 2 === 1) {
+        let jugadorLibre = jugadoresOrdenados.find(j => !emparejados.has(j.nombre));
+        if (jugadorLibre) {
+            jugadorLibre.puntos += 3;
+            emparejados.add(jugadorLibre.nombre);
         }
     }
 }
@@ -166,13 +184,19 @@ function pasarSiguienteRonda() {
 
 function finalizarTorneo() {
     jugadores.forEach(j => {
-        j.oponentesWinRate = j.oponentes.length ? j.oponentes.reduce((acc, o) => acc + (o.ganadas / Math.max(1, (o.ganadas + o.perdidas + o.empatadas))), 0) / j.oponentes.length : 0;
+        let totalOponentes = j.oponentes.length;
+        if (totalOponentes > 0) {
+            let winrateOponentes = j.oponentes.reduce((acc, oponenteNombre) => {
+                let oponente = jugadores.find(j => j.nombre === oponenteNombre);
+                return acc + (oponente ? oponente.puntos : 0);
+            }, 0) / totalOponentes;
+            j.winrateOponentes = isNaN(winrateOponentes) ? 0 : winrateOponentes;
+        } else {
+            j.winrateOponentes = 0;
+        }
     });
     
-    jugadores.sort((a, b) => {
-        if (b.ganadas !== a.ganadas) return b.ganadas - a.ganadas;
-        return b.oponentesWinRate - a.oponentesWinRate;
-    });
+    jugadores.sort((a, b) => b.puntos - a.puntos || b.winrateOponentes - a.winrateOponentes);
     
     let resultadoFinal = `<h2>Resultados Finales</h2>
                           <table class='table table-bordered'>
@@ -180,10 +204,7 @@ function finalizarTorneo() {
                                 <tr>
                                     <th>Nombre</th>
                                     <th>Puntos</th>
-                                    <th>Ganadas</th>
-                                    <th>Perdidas</th>
-                                    <th>Empatadas</th>
-                                    <th>WR Oponentes</th>
+                                    <th>Winrate Oponentes</th>
                                 </tr>
                             </thead>
                             <tbody>`;
@@ -192,10 +213,7 @@ function finalizarTorneo() {
         resultadoFinal += `<tr>
                             <td>${j.nombre}</td>
                             <td>${j.puntos}</td>
-                            <td>${j.ganadas}</td>
-                            <td>${j.perdidas}</td>
-                            <td>${j.empatadas}</td>
-                            <td>${(j.oponentesWinRate * 100).toFixed(2)}%</td>
+                            <td>${j.winrateOponentes.toFixed(2)}</td>
                            </tr>`;
     });
     
