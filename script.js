@@ -29,11 +29,11 @@ function actualizarTabla() {
     jugadores.forEach(jugador => {
         const row = `<tr>
                         <td>${jugador.nombre}</td>
+                        <td>${jugador.puntos}</td>
                         <td>${jugador.ganadas}</td>
                         <td>${jugador.perdidas}</td>
                         <td>${jugador.empatadas}</td>
-                        <td>${jugador.puntos}</td>
-                        <td>${calcularWinrate(jugador).toFixed(2)}</td>
+                        <td>${(calcularWinrate(jugador)*100).toFixed(2)}</td>
                      </tr>`;
         tbody.innerHTML += row;
     });
