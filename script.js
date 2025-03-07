@@ -33,19 +33,24 @@ function actualizarTabla() {
                         <td>${jugador.ganadas}</td>
                         <td>${jugador.perdidas}</td>
                         <td>${jugador.empatadas}</td>
-                        <td>${(calcularWinrate(jugador)*100).toFixed(2)}</td>
                      </tr>`;
         tbody.innerHTML += row;
     });
 }
 
 function calcularWinrate(jugador) {
+    let totalPartidos = jugador.ganadas + jugador.perdidas + jugador.empatadas;
+    if (totalPartidos === 0) return 0;
+    return (jugador.ganadas*3 + jugador.empatadas*1) / (totalPartidos*3) * 100;
+}
+
+function calcularWinrateOponentes(jugador) {
     if (jugador.oponentes.length === 0) return 0;
-    let totalPuntosOponentes = jugador.oponentes.reduce((acc, oponenteNombre) => {
+    let totalWinrate = jugador.oponentes.reduce((acc, oponenteNombre) => {
         let oponente = jugadores.find(j => j.nombre === oponenteNombre);
-        return acc + (oponente ? oponente.puntos : 0);
+        return acc + (oponente ? calcularWinrate(oponente) : 0);
     }, 0);
-    return totalPuntosOponentes / jugador.oponentes.length;
+    return totalWinrate / jugador.oponentes.length;
 }
 
 function iniciarRonda() {
@@ -61,7 +66,7 @@ function iniciarRonda() {
 
 function generarEnfrentamientos() {
     enfrentamientos = [];
-    let jugadoresOrdenados = [...jugadores].sort((a, b) => b.puntos - a.puntos || calcularWinrate(b) - calcularWinrate(a));
+    let jugadoresOrdenados = [...jugadores].sort((a, b) => b.puntos - a.puntos || calcularWinrateOponentes(b) - calcularWinrateOponentes(a));
     let emparejados = new Set();
     
     for (let i = 0; i < jugadoresOrdenados.length; i++) {
@@ -184,16 +189,7 @@ function pasarSiguienteRonda() {
 
 function finalizarTorneo() {
     jugadores.forEach(j => {
-        let totalOponentes = j.oponentes.length;
-        if (totalOponentes > 0) {
-            let winrateOponentes = j.oponentes.reduce((acc, oponenteNombre) => {
-                let oponente = jugadores.find(j => j.nombre === oponenteNombre);
-                return acc + (oponente ? oponente.puntos : 0);
-            }, 0) / totalOponentes;
-            j.winrateOponentes = isNaN(winrateOponentes) ? 0 : winrateOponentes;
-        } else {
-            j.winrateOponentes = 0;
-        }
+        j.winrateOponentes = calcularWinrateOponentes(j);
     });
     
     jugadores.sort((a, b) => b.puntos - a.puntos || b.winrateOponentes - a.winrateOponentes);
