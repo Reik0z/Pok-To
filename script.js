@@ -1,23 +1,61 @@
 let jugadores = [];
 let enfrentamientos = [];
+let historialRondas = [];
 let ronda = 1;
 let rondaFinalizada = false;
 
+// Clase para manejar mejor los jugadores
+class Jugador {
+    constructor(nombre) {
+        this.nombre = nombre;
+        this.puntos = 0;
+        this.ganadas = 0;
+        this.perdidas = 0;
+        this.empatadas = 0;
+        this.oponentes = [];
+        this.winrateOponentes = 0;
+    }
+
+    calcularWinrate() {
+        const totalPartidos = this.ganadas + this.perdidas + this.empatadas;
+        if (totalPartidos === 0) return 0;
+        return (this.ganadas * 3 + this.empatadas * 1) / (totalPartidos * 3) * 100;
+    }
+
+    actualizarWinrateOponentes() {
+        if (this.oponentes.length === 0) {
+            this.winrateOponentes = 0;
+            return;
+        }
+
+        const totalWinrate = this.oponentes.reduce((acc, oponenteNombre) => {
+            const oponente = jugadores.find(j => j.nombre === oponenteNombre);
+            return acc + (oponente ? oponente.calcularWinrate() : 0);
+        }, 0);
+
+        this.winrateOponentes = totalWinrate / this.oponentes.length;
+    }
+}
+
+// Funciones principales
 function agregarJugador() {
     const input = document.getElementById("nombreJugador");
     const nombre = input.value.trim();
-    if (nombre) {
-        jugadores.push({ nombre, puntos: 0, ganadas: 0, perdidas: 0, empatadas: 0, oponentes: [] });
-        input.value = "";
-        actualizarTabla();
-    }
+    
+    if (!nombre) return;
+    
+    jugadores.push(new Jugador(nombre));
+    input.value = "";
+    actualizarTabla();
 }
 
 function resetearJugadores() {
     jugadores = [];
     enfrentamientos = [];
+    historialRondas = [];
     ronda = 1;
     rondaFinalizada = false;
+    
     actualizarTabla();
     document.getElementById("enfrentamientos").innerHTML = "";
     document.getElementById("resultadosFinales").innerHTML = "";
@@ -26,69 +64,65 @@ function resetearJugadores() {
 function actualizarTabla() {
     const tbody = document.getElementById("tablaJugadores");
     tbody.innerHTML = "";
+    
     jugadores.forEach(jugador => {
-        const row = `<tr>
-                        <td>${jugador.nombre}</td>
-                        <td>${jugador.puntos}</td>
-                        <td>${jugador.ganadas}</td>
-                        <td>${jugador.perdidas}</td>
-                        <td>${jugador.empatadas}</td>
-                     </tr>`;
-        tbody.innerHTML += row;
+        const row = document.createElement("tr");
+        row.innerHTML = `
+            <td>${jugador.nombre}</td>
+            <td>${jugador.puntos}</td>
+            <td>${jugador.ganadas}</td>
+            <td>${jugador.perdidas}</td>
+            <td>${jugador.empatadas}</td>
+        `;
+        tbody.appendChild(row);
     });
 }
 
-function calcularWinrate(jugador) {
-    let totalPartidos = jugador.ganadas + jugador.perdidas + jugador.empatadas;
-    if (totalPartidos === 0) return 0;
-    return (jugador.ganadas*3 + jugador.empatadas*1) / (totalPartidos*3) * 100;
-}
-
-function calcularWinrateOponentes(jugador) {
-    if (jugador.oponentes.length === 0) return 0;
-    let totalWinrate = jugador.oponentes.reduce((acc, oponenteNombre) => {
-        let oponente = jugadores.find(j => j.nombre === oponenteNombre);
-        return acc + (oponente ? calcularWinrate(oponente) : 0);
-    }, 0);
-    return totalWinrate / jugador.oponentes.length;
-}
-
+// Funciones de manejo de rondas
 function iniciarRonda() {
     if (jugadores.length < 2) {
         alert("Debe haber al menos 2 jugadores");
         return;
     }
+    
     rondaFinalizada = false;
-    jugadores.sort(() => Math.random() - 0.5);
+    jugadores.sort(() => Math.random() - 0.5); // Mezcla inicial para primera ronda
     generarEnfrentamientos();
     mostrarEnfrentamientos();
 }
 
 function generarEnfrentamientos() {
     enfrentamientos = [];
-    let jugadoresOrdenados = [...jugadores].sort((a, b) => b.puntos - a.puntos || calcularWinrateOponentes(b) - calcularWinrateOponentes(a));
-    let emparejados = new Set();
+    const jugadoresOrdenados = [...jugadores]
+        .sort((a, b) => b.puntos - a.puntos || b.winrateOponentes - a.winrateOponentes);
+    
+    const emparejados = new Set();
     
     for (let i = 0; i < jugadoresOrdenados.length; i++) {
-        if (emparejados.has(jugadoresOrdenados[i].nombre)) continue;
+        const jugadorActual = jugadoresOrdenados[i];
         
-        let rival = jugadoresOrdenados.find(j => 
+        if (emparejados.has(jugadorActual.nombre)) continue;
+        
+        // Buscar rival adecuado
+        const rival = jugadoresOrdenados.find(j => 
             !emparejados.has(j.nombre) && 
-            j.nombre !== jugadoresOrdenados[i].nombre && 
-            !jugadoresOrdenados[i].oponentes.includes(j.nombre)
+            j.nombre !== jugadorActual.nombre && 
+            !jugadorActual.oponentes.includes(j.nombre)
         );
         
         if (rival) {
-            enfrentamientos.push([jugadoresOrdenados[i], rival, null]);
-            emparejados.add(jugadoresOrdenados[i].nombre);
+            enfrentamientos.push([jugadorActual, rival, null]);
+            emparejados.add(jugadorActual.nombre);
             emparejados.add(rival.nombre);
-            jugadoresOrdenados[i].oponentes.push(rival.nombre);
-            rival.oponentes.push(jugadoresOrdenados[i].nombre);
+            
+            jugadorActual.oponentes.push(rival.nombre);
+            rival.oponentes.push(jugadorActual.nombre);
         }
     }
     
+    // Manejar jugador libre en caso de número impar
     if (jugadoresOrdenados.length % 2 === 1) {
-        let jugadorLibre = jugadoresOrdenados.find(j => !emparejados.has(j.nombre));
+        const jugadorLibre = jugadoresOrdenados.find(j => !emparejados.has(j.nombre));
         if (jugadorLibre) {
             jugadorLibre.puntos += 3;
             emparejados.add(jugadorLibre.nombre);
@@ -99,81 +133,53 @@ function generarEnfrentamientos() {
 function mostrarEnfrentamientos() {
     const container = document.getElementById("enfrentamientos");
     container.innerHTML = `<h3>Ronda ${ronda}</h3>`;
-    enfrentamientos.forEach((pair, index) => {
-        container.innerHTML += `
-            <div class='card p-3 my-2'>
-                <h5>Partido ${index + 1}</h5>
-                <button class='btn btn-outline-primary resultado-btn' data-index='${index}' data-result='0'>${pair[0].nombre}</button>
-                vs
-                <button class='btn btn-outline-primary resultado-btn' data-index='${index}' data-result='1'>${pair[1].nombre}</button>
-                <button class='btn btn-outline-warning resultado-btn' data-index='${index}' data-result='empate'>Empate</button>
-            </div>
+    
+    enfrentamientos.forEach(([jugador1, jugador2, resultado], index) => {
+        const card = document.createElement("div");
+        card.className = "card p-3 my-2";
+        card.innerHTML = `
+            <h5>Mesa ${index + 1}</h5>
+            <button class="btn btn-outline-primary resultado-btn" data-index="${index}" data-result="0">
+                ${jugador1.nombre}
+            </button>
+            vs
+            <button class="btn btn-outline-primary resultado-btn" data-index="${index}" data-result="1">
+                ${jugador2.nombre}
+            </button>
+            <button class="btn btn-outline-warning resultado-btn" data-index="${index}" data-result="empate">
+                Empate
+            </button>
         `;
+        container.appendChild(card);
     });
-    container.innerHTML += `<button class='btn btn-secondary mt-3' onclick='pasarSiguienteRonda()'>Siguiente Ronda</button>`;
-    container.innerHTML += `<button class='btn btn-danger mt-3' onclick='finalizarTorneo()'>Finalizar Torneo</button>`;
+    
+    const botonesContainer = document.createElement("div");
+    botonesContainer.className = "mt-3";
+    
+    const siguienteBtn = document.createElement("button");
+    siguienteBtn.className = "btn btn-secondary";
+    siguienteBtn.textContent = "Siguiente Ronda";
+    siguienteBtn.onclick = pasarSiguienteRonda;
+    botonesContainer.appendChild(siguienteBtn);
+    
+    const finalizarBtn = document.createElement("button");
+    finalizarBtn.className = "btn btn-danger ms-2";
+    finalizarBtn.textContent = "Finalizar Torneo";
+    finalizarBtn.onclick = finalizarTorneo;
+    botonesContainer.appendChild(finalizarBtn);
+    
+    if (historialRondas.length > 0) {
+        const retrocederBtn = document.createElement("button");
+        retrocederBtn.className = "btn btn-info ms-2";
+        retrocederBtn.textContent = "Ronda Anterior";
+        retrocederBtn.onclick = retrocederRonda;
+        botonesContainer.appendChild(retrocederBtn);
+    }
+    
+    container.appendChild(botonesContainer);
     
     setTimeout(agregarEventosBotones, 100);
-}
-
-function agregarEventosBotones() {
-    document.querySelectorAll(".resultado-btn").forEach(button => {
-        button.replaceWith(button.cloneNode(true)); // Elimina eventos anteriores
-    });
-    document.querySelectorAll(".resultado-btn").forEach(button => {
-        button.addEventListener("click", function() {
-            registrarResultado(this.dataset.index, this.dataset.result);
-            actualizarEstadoBotones();
-        });
-    });
-}
-
-function registrarResultado(index, resultado) {
-    if (rondaFinalizada) return;
-    index = parseInt(index);
-    let enfrentamiento = enfrentamientos[index];
-    let anterior = enfrentamiento[2];
-    
-    if (anterior !== null) {
-        if (anterior === "empate") {
-            enfrentamiento[0].puntos -= 1;
-            enfrentamiento[1].puntos -= 1;
-            enfrentamiento[0].empatadas--;
-            enfrentamiento[1].empatadas--;
-        } else {
-            enfrentamiento[anterior].puntos -= 3;
-            enfrentamiento[anterior].ganadas--;
-            enfrentamiento[1 - anterior].perdidas--;
-        }
-    }
-    
-    if (anterior === resultado) {
-        enfrentamiento[2] = null;
-    } else {
-        enfrentamiento[2] = resultado;
-        if (resultado === "empate") {
-            enfrentamiento[0].puntos += 1;
-            enfrentamiento[1].puntos += 1;
-            enfrentamiento[0].empatadas++;
-            enfrentamiento[1].empatadas++;
-        } else {
-            enfrentamiento[resultado].puntos += 3;
-            enfrentamiento[resultado].ganadas++;
-            enfrentamiento[1 - resultado].perdidas++;
-        }
-    }
-    actualizarTabla();
-}
-
-function actualizarEstadoBotones() {
-    document.querySelectorAll(".resultado-btn").forEach(button => {
-        button.classList.remove("active");
-    });
-    enfrentamientos.forEach((enfrentamiento, index) => {
-        if (enfrentamiento[2] !== null) {
-            document.querySelector(`[data-index='${index}'][data-result='${enfrentamiento[2]}']`).classList.add("active");
-        }
-    });
+    actualizarEstadoBotones();
 }
 
 function pasarSiguienteRonda() {
@@ -181,38 +187,174 @@ function pasarSiguienteRonda() {
         alert("Debe registrar todos los resultados antes de pasar a la siguiente ronda.");
         return;
     }
-    rondaFinalizada = false;
+    
+    // Guardar estado actual en el historial
+    guardarEstadoActual();
+    
     ronda++;
+    rondaFinalizada = false;
     generarEnfrentamientos();
     mostrarEnfrentamientos();
 }
 
+function retrocederRonda() {
+    if (historialRondas.length === 0) {
+        alert("No hay rondas anteriores a las que regresar.");
+        return;
+    }
+    
+    const estadoAnterior = historialRondas.pop();
+    jugadores = estadoAnterior.jugadores.map(j => Object.assign(new Jugador(), j));
+    enfrentamientos = estadoAnterior.enfrentamientos;
+    ronda = estadoAnterior.ronda;
+    rondaFinalizada = false;
+    
+    // Actualizar winrates de oponentes
+    jugadores.forEach(j => j.actualizarWinrateOponentes());
+    
+    actualizarTabla();
+    mostrarEnfrentamientos();
+}
+
+function guardarEstadoActual() {
+    historialRondas.push({
+        jugadores: JSON.parse(JSON.stringify(jugadores)),
+        enfrentamientos: JSON.parse(JSON.stringify(enfrentamientos)),
+        ronda: ronda
+    });
+}
+
+// Funciones de manejo de resultados
+function agregarEventosBotones() {
+    document.querySelectorAll(".resultado-btn").forEach(button => {
+        button.addEventListener("click", function() {
+            registrarResultado(parseInt(this.dataset.index), this.dataset.result);
+        });
+    });
+}
+
+function registrarResultado(index, resultado) {
+    if (rondaFinalizada) return;
+    
+    const enfrentamiento = enfrentamientos[index];
+    const resultadoAnterior = enfrentamiento[2];
+    
+    // Revertir resultado anterior si existe
+    if (resultadoAnterior !== null) {
+        revertirResultado(enfrentamiento, resultadoAnterior);
+    }
+    
+    // Aplicar nuevo resultado si es diferente al anterior
+    if (resultadoAnterior !== resultado) {
+        aplicarResultado(enfrentamiento, resultado);
+        enfrentamiento[2] = resultado;
+    } else {
+        enfrentamiento[2] = null;
+    }
+    
+    actualizarTabla();
+    actualizarEstadoBotones();
+}
+
+function revertirResultado(enfrentamiento, resultado) {
+    const [jugador1, jugador2] = enfrentamiento;
+    
+    if (resultado === "empate") {
+        jugador1.puntos -= 1;
+        jugador2.puntos -= 1;
+        jugador1.empatadas--;
+        jugador2.empatadas--;
+    } else {
+        const ganador = enfrentamiento[resultado];
+        const perdedor = enfrentamiento[1 - resultado];
+        
+        ganador.puntos -= 3;
+        ganador.ganadas--;
+        perdedor.perdidas--;
+    }
+}
+
+function aplicarResultado(enfrentamiento, resultado) {
+    const [jugador1, jugador2] = enfrentamiento;
+    
+    if (resultado === "empate") {
+        jugador1.puntos += 1;
+        jugador2.puntos += 1;
+        jugador1.empatadas++;
+        jugador2.empatadas++;
+    } else {
+        const ganador = enfrentamiento[resultado];
+        const perdedor = enfrentamiento[1 - resultado];
+        
+        ganador.puntos += 3;
+        ganador.ganadas++;
+        perdedor.perdidas++;
+    }
+}
+
+function actualizarEstadoBotones() {
+    document.querySelectorAll(".resultado-btn").forEach(button => {
+        button.classList.remove("active", "btn-success");
+    });
+    
+    enfrentamientos.forEach((enfrentamiento, index) => {
+        if (enfrentamiento[2] !== null) {
+            const botonActivo = document.querySelector(`[data-index="${index}"][data-result="${enfrentamiento[2]}"]`);
+            if (botonActivo) {
+                botonActivo.classList.add("active", "btn-success");
+                botonActivo.classList.remove("btn-outline-primary", "btn-outline-warning");
+            }
+        }
+    });
+}
+
+// Función de finalización
 function finalizarTorneo() {
-    jugadores.forEach(j => {
-        j.winrateOponentes = calcularWinrateOponentes(j);
-    });
+    if (enfrentamientos.some(e => e[2] === null)) {
+        alert("Debe registrar todos los resultados antes de finalizar el torneo.");
+        return;
+    }
     
-    jugadores.sort((a, b) => b.puntos - a.puntos || b.winrateOponentes - a.winrateOponentes);
+    // Actualizar winrates de oponentes para todos los jugadores
+    jugadores.forEach(j => j.actualizarWinrateOponentes());
     
-    let resultadoFinal = `<h2>Resultados Finales</h2>
-                          <table class='table table-bordered'>
-                            <thead>
-                                <tr>
-                                    <th>Nombre</th>
-                                    <th>Puntos</th>
-                                    <th>Winrate Oponentes</th>
-                                </tr>
-                            </thead>
-                            <tbody>`;
+    // Ordenar jugadores para resultados finales
+    const jugadoresOrdenados = [...jugadores].sort((a, b) => 
+        b.puntos - a.puntos || b.winrateOponentes - a.winrateOponentes
+    );
     
-    jugadores.forEach(j => {
-        resultadoFinal += `<tr>
-                            <td>${j.nombre}</td>
-                            <td>${j.puntos}</td>
-                            <td>${j.winrateOponentes.toFixed(2)}</td>
-                           </tr>`;
-    });
+    // Generar HTML de resultados
+    const resultadoFinal = document.createElement("div");
+    resultadoFinal.innerHTML = `
+        <h2>Resultados Finales</h2>
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>Posición</th>
+                    <th>Nombre</th>
+                    <th>Puntos</th>
+                    <th>Ganadas</th>
+                    <th>Perdidas</th>
+                    <th>Empates</th>
+                    <th>Winrate Oponentes</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${jugadoresOrdenados.map((jugador, index) => `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>${jugador.nombre}</td>
+                        <td>${jugador.puntos}</td>
+                        <td>${jugador.ganadas}</td>
+                        <td>${jugador.perdidas}</td>
+                        <td>${jugador.empatadas}</td>
+                        <td>${jugador.winrateOponentes.toFixed(2)}%</td>
+                    </tr>
+                `).join("")}
+            </tbody>
+        </table>
+    `;
     
-    resultadoFinal += `</tbody></table>`;
-    document.getElementById("resultadosFinales").innerHTML = resultadoFinal;
+    document.getElementById("resultadosFinales").innerHTML = "";
+    document.getElementById("resultadosFinales").appendChild(resultadoFinal);
 }
