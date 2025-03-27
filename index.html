@@ -6,6 +6,7 @@
     <title>PokéTo - Torneo Pokémon</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="style.css" rel="stylesheet">
     <style>
         .pokemon-theme {
             background-color: #f8f9fa;
@@ -81,6 +82,7 @@
                             <th><i class="bi bi-trophy"></i> Ganadas</th>
                             <th><i class="bi bi-emoji-frown"></i> Perdidas</th>
                             <th><i class="bi bi-handshake"></i> Empates</th>
+                            <th><i class="bi bi-trash"></i></th>
                         </tr>
                     </thead>
                     <tbody id="tablaJugadores">
@@ -93,8 +95,20 @@
 
     <!-- Sección de enfrentamientos -->
     <section class="card mb-4">
-        <div class="card-header bg-warning text-dark">
+        <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center mb-3">
             <h3 class="mb-0"><i class="bi bi-sword"></i> Enfrentamientos</h3>
+            <div class="temporizador-container">
+                <span id="temporizador">25:00</span>
+                <button id="iniciarTemporizador" class="btn btn-sm btn-success ms-2">
+                    <i class="bi bi-play"></i>
+                </button>
+                <button id="pausarTemporizador" class="btn btn-sm btn-warning ms-1">
+                    <i class="bi bi-pause"></i>
+                </button>
+                <button id="finalizarTemporizador" class="btn btn-sm btn-danger ms-1">
+                    <i class="bi bi-stop"></i>
+                </button>
+            </div>
         </div>
         <div class="card-body">
             <button class="btn btn-pokemon mb-3" onclick="iniciarRonda()">

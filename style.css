@@ -1,0 +1,36 @@
+.card-match {
+    border-left: 4px solid #dc3545;
+    transition: all 0.3s ease;
+}
+
+.card-match:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.resultado-btn {
+    transition: all 0.2s ease;
+}
+
+.resultado-btn:hover:not(.active) {
+    transform: scale(1.02);
+}
+
+.resultado-btn.active {
+    transform: scale(1.05);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.temporizador-container {
+    background-color: #f8f9fa;
+    padding: 0.5rem 1rem;
+    border-radius: 50px;
+    display: flex;
+    align-items: center;
+}
+
+#temporizador {
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    font-size: 1.2rem;
+}

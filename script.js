@@ -4,7 +4,11 @@ let historialRondas = [];
 let ronda = 1;
 let rondaFinalizada = false;
 
-// Clase para manejar mejor los jugadores
+// Variables para el temporizador
+let tiempoRestante = 50 * 60; // 50 minutos en segundos
+let intervalo;
+let temporizadorActivo = false;
+
 class Jugador {
     constructor(nombre) {
         this.nombre = nombre;
@@ -37,7 +41,50 @@ class Jugador {
     }
 }
 
-// Funciones principales
+// Funciones del temporizador
+function iniciarTemporizador() {
+    if (temporizadorActivo) return;
+    temporizadorActivo = true;
+    
+    intervalo = setInterval(() => {
+        tiempoRestante--;
+        actualizarTemporizadorDisplay();
+        
+        if (tiempoRestante <= 0) {
+            finalizarTemporizador();
+            alert("¡El tiempo de la ronda ha terminado!");
+        }
+    }, 1000);
+}
+
+function pausarTemporizador() {
+    clearInterval(intervalo);
+    temporizadorActivo = false;
+}
+
+function finalizarTemporizador() {
+    clearInterval(intervalo);
+    temporizadorActivo = false;
+    tiempoRestante = 50 * 60;
+    actualizarTemporizadorDisplay();
+}
+
+function actualizarTemporizadorDisplay() {
+    const minutos = Math.floor(tiempoRestante / 60);
+    const segundos = tiempoRestante % 60;
+    document.getElementById("temporizador").textContent = 
+        `${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`;
+}
+
+// Event listeners para los botones del temporizador
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('iniciarTemporizador').addEventListener('click', iniciarTemporizador);
+    document.getElementById('pausarTemporizador').addEventListener('click', pausarTemporizador);
+    document.getElementById('finalizarTemporizador').addEventListener('click', finalizarTemporizador);
+    actualizarTemporizadorDisplay();
+});
+
+// Funciones del jugador
 function agregarJugador() {
     const input = document.getElementById("nombreJugador");
     const nombre = input.value.trim();
@@ -65,7 +112,7 @@ function actualizarTabla() {
     const tbody = document.getElementById("tablaJugadores");
     tbody.innerHTML = "";
     
-    jugadores.forEach(jugador => {
+    jugadores.forEach((jugador, index) => {
         const row = document.createElement("tr");
         row.innerHTML = `
             <td>${jugador.nombre}</td>
@@ -73,12 +120,32 @@ function actualizarTabla() {
             <td>${jugador.ganadas}</td>
             <td>${jugador.perdidas}</td>
             <td>${jugador.empatadas}</td>
+            <td>
+                <button class="btn btn-sm btn-danger eliminar-jugador" data-index="${index}" ${ronda > 1 ? 'disabled' : ''}>
+                    <i class="bi bi-trash"></i>
+                </button>
+            </td>
         `;
         tbody.appendChild(row);
     });
+
+    // Agregar eventos a los botones de eliminar
+    document.querySelectorAll('.eliminar-jugador').forEach(btn => {
+        btn.addEventListener('click', function() {
+            eliminarJugador(parseInt(this.dataset.index));
+        });
+    });
 }
 
-// Funciones de manejo de rondas
+function eliminarJugador(index) {
+    if (ronda > 1) {
+        alert("No puedes eliminar jugadores después de iniciar el torneo");
+        return;
+    }
+    jugadores.splice(index, 1);
+    actualizarTabla();
+}
+
 function iniciarRonda() {
     if (jugadores.length < 2) {
         alert("Debe haber al menos 2 jugadores");
@@ -86,7 +153,7 @@ function iniciarRonda() {
     }
     
     rondaFinalizada = false;
-    jugadores.sort(() => Math.random() - 0.5); // Mezcla inicial para primera ronda
+    jugadores.sort(() => Math.random() - 0.5);
     generarEnfrentamientos();
     mostrarEnfrentamientos();
 }
@@ -103,7 +170,6 @@ function generarEnfrentamientos() {
         
         if (emparejados.has(jugadorActual.nombre)) continue;
         
-        // Buscar rival adecuado
         const rival = jugadoresOrdenados.find(j => 
             !emparejados.has(j.nombre) && 
             j.nombre !== jugadorActual.nombre && 
@@ -120,7 +186,6 @@ function generarEnfrentamientos() {
         }
     }
     
-    // Manejar jugador libre en caso de número impar
     if (jugadoresOrdenados.length % 2 === 1) {
         const jugadorLibre = jugadoresOrdenados.find(j => !emparejados.has(j.nombre));
         if (jugadorLibre) {
@@ -132,51 +197,57 @@ function generarEnfrentamientos() {
 
 function mostrarEnfrentamientos() {
     const container = document.getElementById("enfrentamientos");
-    container.innerHTML = `<h3>Ronda ${ronda}</h3>`;
+    container.innerHTML = `
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3 class="mb-0">Ronda ${ronda}</h3>
+            <div class="temporizador-container">
+                <span id="temporizador">50:00</span>
+                <button id="iniciarTemporizador" class="btn btn-sm btn-success ms-2">
+                    <i class="bi bi-play"></i>
+                </button>
+                <button id="pausarTemporizador" class="btn btn-sm btn-warning ms-1">
+                    <i class="bi bi-pause"></i>
+                </button>
+                <button id="finalizarTemporizador" class="btn btn-sm btn-danger ms-1">
+                    <i class="bi bi-stop"></i>
+                </button>
+            </div>
+        </div>
+    `;
     
     enfrentamientos.forEach(([jugador1, jugador2, resultado], index) => {
         const card = document.createElement("div");
-        card.className = "card p-3 my-2";
+        card.className = "card p-3 my-3 card-match";
         card.innerHTML = `
-            <h5>Mesa ${index + 1}</h5>
-            <button class="btn btn-outline-primary resultado-btn" data-index="${index}" data-result="0">
-                ${jugador1.nombre}
-            </button>
-            vs
-            <button class="btn btn-outline-primary resultado-btn" data-index="${index}" data-result="1">
-                ${jugador2.nombre}
-            </button>
-            <button class="btn btn-outline-warning resultado-btn" data-index="${index}" data-result="empate">
-                Empate
-            </button>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h5 class="mb-0"><i class="bi bi-table"></i> Mesa ${index + 1}</h5>
+                <span class="badge bg-primary">Partido ${index + 1}</span>
+            </div>
+            <div class="row g-3">
+                <div class="col-md-5">
+                    <button class="btn btn-outline-primary w-100 resultado-btn py-2" data-index="${index}" data-result="0">
+                        <i class="bi bi-person"></i> ${jugador1.nombre}
+                    </button>
+                </div>
+                <div class="col-md-2 text-center align-self-center">
+                    <span class="fw-bold">VS</span>
+                </div>
+                <div class="col-md-5">
+                    <button class="btn btn-outline-primary w-100 resultado-btn py-2" data-index="${index}" data-result="1">
+                        <i class="bi bi-person"></i> ${jugador2.nombre}
+                    </button>
+                </div>
+                <div class="col-12">
+                    <button class="btn btn-outline-warning w-100 resultado-btn py-2" data-index="${index}" data-result="empate">
+                        <i class="bi bi-handshake"></i> Empate
+                    </button>
+                </div>
+            </div>
         `;
         container.appendChild(card);
     });
     
-    const botonesContainer = document.createElement("div");
-    botonesContainer.className = "mt-3";
-    
-    const siguienteBtn = document.createElement("button");
-    siguienteBtn.className = "btn btn-secondary";
-    siguienteBtn.textContent = "Siguiente Ronda";
-    siguienteBtn.onclick = pasarSiguienteRonda;
-    botonesContainer.appendChild(siguienteBtn);
-    
-    const finalizarBtn = document.createElement("button");
-    finalizarBtn.className = "btn btn-danger ms-2";
-    finalizarBtn.textContent = "Finalizar Torneo";
-    finalizarBtn.onclick = finalizarTorneo;
-    botonesContainer.appendChild(finalizarBtn);
-    
-    if (historialRondas.length > 0) {
-        const retrocederBtn = document.createElement("button");
-        retrocederBtn.className = "btn btn-info ms-2";
-        retrocederBtn.textContent = "Ronda Anterior";
-        retrocederBtn.onclick = retrocederRonda;
-        botonesContainer.appendChild(retrocederBtn);
-    }
-    
-    container.appendChild(botonesContainer);
+    // Resto del código para los botones de control de ronda...
     
     setTimeout(agregarEventosBotones, 100);
     actualizarEstadoBotones();
@@ -188,7 +259,6 @@ function pasarSiguienteRonda() {
         return;
     }
     
-    // Guardar estado actual en el historial
     guardarEstadoActual();
     
     ronda++;
@@ -209,7 +279,6 @@ function retrocederRonda() {
     ronda = estadoAnterior.ronda;
     rondaFinalizada = false;
     
-    // Actualizar winrates de oponentes
     jugadores.forEach(j => j.actualizarWinrateOponentes());
     
     actualizarTabla();
@@ -224,7 +293,6 @@ function guardarEstadoActual() {
     });
 }
 
-// Funciones de manejo de resultados
 function agregarEventosBotones() {
     document.querySelectorAll(".resultado-btn").forEach(button => {
         button.addEventListener("click", function() {
@@ -239,12 +307,10 @@ function registrarResultado(index, resultado) {
     const enfrentamiento = enfrentamientos[index];
     const resultadoAnterior = enfrentamiento[2];
     
-    // Revertir resultado anterior si existe
     if (resultadoAnterior !== null) {
         revertirResultado(enfrentamiento, resultadoAnterior);
     }
     
-    // Aplicar nuevo resultado si es diferente al anterior
     if (resultadoAnterior !== resultado) {
         aplicarResultado(enfrentamiento, resultado);
         enfrentamiento[2] = resultado;
@@ -295,6 +361,13 @@ function aplicarResultado(enfrentamiento, resultado) {
 function actualizarEstadoBotones() {
     document.querySelectorAll(".resultado-btn").forEach(button => {
         button.classList.remove("active", "btn-success");
+        
+        // Restaurar clases originales
+        if (button.dataset.result === "empate") {
+            button.classList.add("btn-outline-warning");
+        } else {
+            button.classList.add("btn-outline-primary");
+        }
     });
     
     enfrentamientos.forEach((enfrentamiento, index) => {
@@ -308,22 +381,18 @@ function actualizarEstadoBotones() {
     });
 }
 
-// Función de finalización
 function finalizarTorneo() {
     if (enfrentamientos.some(e => e[2] === null)) {
         alert("Debe registrar todos los resultados antes de finalizar el torneo.");
         return;
     }
     
-    // Actualizar winrates de oponentes para todos los jugadores
     jugadores.forEach(j => j.actualizarWinrateOponentes());
     
-    // Ordenar jugadores para resultados finales
     const jugadoresOrdenados = [...jugadores].sort((a, b) => 
         b.puntos - a.puntos || b.winrateOponentes - a.winrateOponentes
     );
     
-    // Generar HTML de resultados
     const resultadoFinal = document.createElement("div");
     resultadoFinal.innerHTML = `
         <h2>Resultados Finales</h2>
