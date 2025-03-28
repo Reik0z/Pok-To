@@ -247,7 +247,30 @@ function mostrarEnfrentamientos() {
         container.appendChild(card);
     });
     
-    // Resto del código para los botones de control de ronda...
+    const botonesContainer = document.createElement("div");
+    botonesContainer.className = "mt-3";
+    
+    const siguienteBtn = document.createElement("button");
+    siguienteBtn.className = "btn btn-secondary";
+    siguienteBtn.textContent = "Siguiente Ronda";
+    siguienteBtn.onclick = pasarSiguienteRonda;
+    botonesContainer.appendChild(siguienteBtn);
+    
+    const finalizarBtn = document.createElement("button");
+    finalizarBtn.className = "btn btn-danger ms-2";
+    finalizarBtn.textContent = "Finalizar Torneo";
+    finalizarBtn.onclick = finalizarTorneo;
+    botonesContainer.appendChild(finalizarBtn);
+    
+    if (historialRondas.length > 0) {
+        const retrocederBtn = document.createElement("button");
+        retrocederBtn.className = "btn btn-info ms-2";
+        retrocederBtn.textContent = "Ronda Anterior";
+        retrocederBtn.onclick = retrocederRonda;
+        botonesContainer.appendChild(retrocederBtn);
+    }
+    
+    container.appendChild(botonesContainer);
     
     setTimeout(agregarEventosBotones, 100);
     actualizarEstadoBotones();
